@@ -35,13 +35,21 @@ class Uploader extends Actor with ActorLogging {
     encoder.encode(xmlStr.getBytes("UTF-8"))
   }
 
+  def getXmlStr(hour: DateTime) = {
+    val xml = DbHelper.getXmlRecord(hour)
+
+    scala.xml.XML.save("temp.xml", xml, "UTF-8", true)
+
+    scala.io.Source.fromFile("temp.xml")("UTF-8").mkString
+  }
+  
   def upload(hour: DateTime, serviceId: String, user: String, password: String) = {
-    val base64 = getBase64XmlStr(hour)
+    val xmlStr = getXmlStr(hour)
     val fileName = s"${serviceId}_${hour.toString("MMdd")}${hour.getHourOfDay}_${user}.xml"
     val errMsgHolder = new Holder("")
     val resultHolder = new Holder(Integer.valueOf(0))
     val unknownHolder = new Holder(new java.lang.Boolean(true))
-    CdxWebService.service.putFile(user, password, fileName, base64, errMsgHolder, resultHolder, unknownHolder)
+    CdxWebService.service.putFile(user, password, fileName, xmlStr.getBytes("UTF-8"), errMsgHolder, resultHolder, unknownHolder)
     if (resultHolder.value != 1) {
       log.error(s"errMsg:${errMsgHolder.value}")
       log.error(s"ret:${resultHolder.value.toString}")
