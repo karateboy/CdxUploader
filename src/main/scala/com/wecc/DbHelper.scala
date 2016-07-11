@@ -123,6 +123,6 @@ object DbHelper {
     import scala.xml._
     val xmlList = hrList.map { _.toXML }
     
-    <HourRecords>{xmlList}</HourRecords>
+    <AQX_P_274_Data><Data>{xmlList}</Data></AQX_P_274_Data>
   }
 }
