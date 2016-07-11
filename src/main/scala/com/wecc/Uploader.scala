@@ -37,7 +37,7 @@ class Uploader extends Actor with ActorLogging {
 
   def upload(hour: DateTime, serviceId: String, user: String, password: String) = {
     val base64 = getBase64XmlStr(hour)
-    val fileName = s"${serviceId}_${hour.toString("MMdd")}_${hour.hour}_${user}.xml"
+    val fileName = s"${serviceId}_${hour.toString("MMdd")}${hour.getHourOfDay}_${user}.xml"
     val errMsgHolder = new Holder("")
     val resultHolder = new Holder(Integer.valueOf(0))
     val unknownHolder = new Holder(new java.lang.Boolean(true))
