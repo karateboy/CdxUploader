@@ -101,6 +101,7 @@ object DbHelper {
   
   def getXmlRecord(hour:DateTime)={
     val hrList = DbHelper.getHourRecord(hour)
+    Console.println(s"#=${hrList.length}")
     getXml(hrList)
   }
   
