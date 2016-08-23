@@ -1,2 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
-<HourRecords></HourRecords>
+<aqs:AirQualitySubmission Version="1.0" n1:schemaLocation="http://taqm.epa.gov.tw/taqm/aqs/schema/" xmlns:n1="http://www.w3.org/2001/XMLSchema-instance" xmlns:aqs="http://taqm.epa.gov.tw/taqm/aqs/schema/">
+      <aqs:FileGenerationPurposeCode>AQS</aqs:FileGenerationPurposeCode>
+      <aqs:FileGenerationDateTime>2016-08-18_03:21:12</aqs:FileGenerationDateTime>
+      
+    </aqs:AirQualitySubmission>

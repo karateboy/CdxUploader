@@ -11,7 +11,7 @@ object ApplicationMain extends App {
   val timer = {
     import com.github.nscala_time.time.Imports._
     val nextHour = DateTime.now + 1.hour
-    val uploadTime = nextHour.withMinuteOfHour(30)
+    val uploadTime = nextHour.withMinuteOfHour(9)
     val duration = new Duration(DateTime.now(), uploadTime)
 
     system.scheduler.schedule(scala.concurrent.duration.Duration(duration.getStandardSeconds + 1, scala.concurrent.duration.SECONDS),

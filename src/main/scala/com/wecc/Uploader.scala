@@ -17,8 +17,7 @@ class Uploader extends Actor with ActorLogging {
       try {
         val lastHour = DateTime.now().withMinuteOfHour(0).withSecondOfMinute(0).withMillisOfSecond(0) - 1.hour
         log.info(s"Upload ${lastHour.toString()}")
-        //val testHour = DateTime.parse("2016-06-29 0:0", DateTimeFormat.forPattern("YYYY-MM-dd HH:mm"))
-        val result = upload(lastHour, "AQX_P_274", "epbntcair", "wfuviFJf")
+        val result = upload(lastHour, "AQX_S_00", "epbntcair", "wfuviFJf")
       } catch {
         case ex: Throwable =>
           log.error(ex, "upload failed")

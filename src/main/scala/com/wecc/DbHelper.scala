@@ -6,32 +6,42 @@ import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 import com.github.nscala_time.time.Imports._
 
-case class HourRecord(station: Int, dateTime: DateTime, itemId: Int, value: Option[Float]){
+case class HourRecord(station: Int, dateTime: DateTime, itemId: Int, value: Option[Float]) {
   import scala.xml._
-    /*
+  /*
      * 測站代碼(SiteId)、測站名稱(SiteName)、縣市(County)、測項代碼(ItemId)、測項名稱(ItemName)、測項英文名稱(ItemEngName)、測項單位(ItemUnit)、監測日期(MonitorDate)、數值(Concentration)。
      */
 
   def toXML = {
     val map = DbHelper.itemIdMap(itemId)
-    val dateTimeStr = dateTime.toString("YYYY-MM-dd HH:mm") 
+    val dateStr = dateTime.toString("YYYY-MM-dd")
+    val timeStr = dateTime.toString("HH:mm:ss")
 
-    <HourRecord>
-			<SiteId>{station}</SiteId>
-			<SiteName>三峽測站</SiteName>
-			<County>新北市</County>	
-			<ItemId>{map.epaId}</ItemId>
-			<ItemEngName>{map.itemCode}</ItemEngName>
-			<ItemUnit>{map.unit}</ItemUnit>
-			<MonitorDate>{dateTimeStr}</MonitorDate>
-			{
-			  if(value.isDefined){
-			    <Concentration>{value.get}</Concentration>
-			  }else{
-			    <Concentration>-</Concentration>
-			  }
-			}
-		</HourRecord>
+    val parameter = String.format("%03d", map.epaId.asInstanceOf[Object])
+    <aqs:AirQualityData>
+      <aqs:SiteIdentifierDetails>
+        <aqs:SiteCounty>10001</aqs:SiteCounty>
+        <aqs:SiteID>029</aqs:SiteID>
+      </aqs:SiteIdentifierDetails>
+      <aqs:MonitorIdentifierDetails>
+        <aqs:Parameter>{ map.epaId }</aqs:Parameter>
+      </aqs:MonitorIdentifierDetails>
+      <aqs:TransactionProtocolDetails>
+        <aqs:SamplingDurationCode>1</aqs:SamplingDurationCode>
+      </aqs:TransactionProtocolDetails>
+      <aqs:SubDailyRawData>
+        <aqs:ActionIndicator>I</aqs:ActionIndicator>
+        <aqs:SampleCollectionStartDate>{ dateStr }</aqs:SampleCollectionStartDate>
+        <aqs:SampleCollectionStartTime>{ timeStr }</aqs:SampleCollectionStartTime>
+        {
+          if (value.isDefined) {
+            <aqs:ReportedSampleValue>{ value.get }</aqs:ReportedSampleValue>
+          } else {
+            <aqs:ReportedSampleValue>-</aqs:ReportedSampleValue>
+          }
+        }
+      </aqs:SubDailyRawData>
+    </aqs:AirQualityData>
   }
 }
 case class ItemIdMap(epaId: Int, itemName: String, itemCode: String, unit: String)
@@ -94,17 +104,17 @@ object DbHelper {
     17 -> ItemIdMap(23, "雨量", "RF", "mm"),
     18 -> ItemIdMap(14, "室內溫度", "TEM", "deg"))
 
-  def getCsvRecord(hour:DateTime):String={
+  def getCsvRecord(hour: DateTime): String = {
     val hrList = DbHelper.getHourRecord(hour)
     getCsvRecord(hrList)
   }
-  
-  def getXmlRecord(hour:DateTime)={
+
+  def getXmlRecord(hour: DateTime) = {
     val hrList = DbHelper.getHourRecord(hour)
     Console.println(s"#=${hrList.length}")
     getXml(hrList)
   }
-  
+
   def getCsvRecord(hrList: List[HourRecord]) = {
     /*
      * 測站代碼(SiteId)、測站名稱(SiteName)、縣市(County)、測項代碼(ItemId)、測項名稱(ItemName)、測項英文名稱(ItemEngName)、測項單位(ItemUnit)、監測日期(MonitorDate)、數值(Concentration)。
@@ -113,17 +123,22 @@ object DbHelper {
 
     val csvList = hrList map { hr =>
       val map = itemIdMap(hr.itemId)
-      val dateTimeStr = hr.dateTime.toString("YYYY-MM-dd HH:mm") 
+      val dateTimeStr = hr.dateTime.toString("YYYY-MM-dd HH:mm")
       s"90,三峽測站,新北市,${map.epaId},${map.itemName},${map.itemCode},${map.unit},${dateTimeStr},${hr.value.getOrElse("-")},"
     }
-    
-    header + csvList.mkString("\r")    
+
+    header + csvList.mkString("\r")
   }
-  
-  def getXml(hrList:List[HourRecord]) = {
+
+  def getXml(hrList: List[HourRecord]) = {
     import scala.xml._
     val xmlList = hrList.map { _.toXML }
-    
-    <AQX_P_274_Data><Data>{xmlList}</Data></AQX_P_274_Data>
+    val nowStr = DateTime.now().toString("YYYY-MM-dd_hh:mm:ss")
+
+    <aqs:AirQualitySubmission xmlns:aqs="http://taqm.epa.gov.tw/taqm/aqs/schema/" Version="1.0" n1:schemaLocation="http://taqm.epa.gov.tw/taqm/aqs/schema/" xmlns:n1="http://www.w3.org/2001/XMLSchema-instance">
+      <aqs:FileGenerationPurposeCode>AQS</aqs:FileGenerationPurposeCode>
+      <aqs:FileGenerationDateTime>{ nowStr }</aqs:FileGenerationDateTime>
+      { xmlList }
+    </aqs:AirQualitySubmission>
   }
 }
