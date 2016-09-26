@@ -17,14 +17,13 @@ case class HourRecord(station: Int, dateTime: DateTime, itemId: Int, value: Opti
     val dateStr = dateTime.toString("YYYY-MM-dd")
     val timeStr = dateTime.toString("HH:mm:ss")
 
-    val parameter = String.format("%03d", map.epaId.asInstanceOf[Object])
     <aqs:AirQualityData>
       <aqs:SiteIdentifierDetails>
         <aqs:SiteCounty>10001</aqs:SiteCounty>
         <aqs:SiteID>029</aqs:SiteID>
       </aqs:SiteIdentifierDetails>
       <aqs:MonitorIdentifierDetails>
-        <aqs:Parameter>{ map.epaId }</aqs:Parameter>
+        <aqs:Parameter>{ "%03d".format(map.epaId) }</aqs:Parameter>
       </aqs:MonitorIdentifierDetails>
       <aqs:TransactionProtocolDetails>
         <aqs:SamplingDurationCode>1</aqs:SamplingDurationCode>

@@ -2,10 +2,12 @@ package com.wecc
 
 import akka.actor.{ Actor, ActorLogging, Props }
 import javax.xml.ws.Holder
+import com.github.nscala_time.time.Imports._
 
 object Uploader {
   val props = Props[Uploader]
   case object Upload
+  case class UploadData(time:DateTime)
 }
 
 class Uploader extends Actor with ActorLogging {
@@ -18,6 +20,14 @@ class Uploader extends Actor with ActorLogging {
         val lastHour = DateTime.now().withMinuteOfHour(0).withSecondOfMinute(0).withMillisOfSecond(0) - 1.hour
         log.info(s"Upload ${lastHour.toString()}")
         val result = upload(lastHour, "AQX_S_00", "epbntcair", "wfuviFJf")
+      } catch {
+        case ex: Throwable =>
+          log.error(ex, "upload failed")
+      }
+    case UploadData(time)=>
+      try {       
+        log.info(s"Upload ${time.toString()}")
+        val result = upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
       } catch {
         case ex: Throwable =>
           log.error(ex, "upload failed")
