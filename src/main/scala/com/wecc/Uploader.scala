@@ -9,12 +9,23 @@ object Uploader {
   val props = Props[Uploader]
   case object Upload
   case class UploadData(time: DateTime)
+  case class UploadRange(start:DateTime, end:DateTime)
 }
 
 class Uploader extends Actor with ActorLogging {
   import Uploader._
   import com.github.nscala_time.time.Imports._
 
+  def getPeriodHours(start:DateTime, end:DateTime)={
+    var hours = Vector.empty[DateTime]
+    var current = start
+    while(current < end){
+      hours = hours :+(current)
+      current += 1.hour
+    }
+    hours
+  }
+  
   def receive = {
     case Upload =>
       try {
@@ -29,6 +40,17 @@ class Uploader extends Actor with ActorLogging {
       try {
         log.info(s"Upload ${time.toString()}")
         val result = upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
+      } catch {
+        case ex: Throwable =>
+          log.error(ex, "upload failed")
+      }
+    case UploadRange(start, end)=>
+      try {       
+        log.info(s"上傳自 ${start.toLocalDateTime.toString} to ${end.toLocalDateTime.toString}")
+        for(time <- getPeriodHours(start,end))
+          upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
+          
+        log.info("Done!")
       } catch {
         case ex: Throwable =>
           log.error(ex, "upload failed")

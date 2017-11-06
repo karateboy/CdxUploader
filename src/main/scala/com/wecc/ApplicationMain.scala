@@ -26,6 +26,12 @@ object ApplicationMain extends App {
     val dataTime = DateTime.parse(args(1), DateTimeFormat.forPattern("YYYY-MM-dd HH:mm"))
     uploader ! Uploader.UploadData(dataTime)
     Console.println(s"Uploading ${dataTime} data")    
+  }else if(args.length == 3){
+    assert(args(0).equalsIgnoreCase("upload"))
+    val start = DateTime.parse(args(1), DateTimeFormat.forPattern("YYYY-MM-dd HH:mm"))
+    val end = DateTime.parse(args(2), DateTimeFormat.forPattern("YYYY-MM-dd HH:mm"))
+    
+    uploader ! Uploader.UploadRange(start, end)
   }
   system.awaitTermination()
 }
