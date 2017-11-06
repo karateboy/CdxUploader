@@ -3,11 +3,12 @@ package com.wecc
 import akka.actor.{ Actor, ActorLogging, Props }
 import javax.xml.ws.Holder
 import com.github.nscala_time.time.Imports._
+import java.io.FileOutputStream
 
 object Uploader {
   val props = Props[Uploader]
   case object Upload
-  case class UploadData(time:DateTime)
+  case class UploadData(time: DateTime)
 }
 
 class Uploader extends Actor with ActorLogging {
@@ -24,8 +25,8 @@ class Uploader extends Actor with ActorLogging {
         case ex: Throwable =>
           log.error(ex, "upload failed")
       }
-    case UploadData(time)=>
-      try {       
+    case UploadData(time) =>
+      try {
         log.info(s"Upload ${time.toString()}")
         val result = upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
       } catch {
@@ -51,9 +52,25 @@ class Uploader extends Actor with ActorLogging {
 
     scala.io.Source.fromFile("temp.xml")("UTF-8").mkString
   }
-  
+
+  def saveCSV(hour: DateTime) = {
+    val csv = DbHelper.getCsvRecord(hour)
+    val bytes = csv.getBytes
+    val out = new FileOutputStream("aqm.csv")
+    out.write(bytes)
+    out.close()
+
+    import java.io.File
+    import java.nio.file.Files
+    import java.nio.file.StandardCopyOption
+    val src = new File("aqm.csv")
+    val dest = new File("C:/inetpub/wwwroot/aqm.csv")
+    Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
+  }
+
   def upload(hour: DateTime, serviceId: String, user: String, password: String) = {
     val xmlStr = getXmlStr(hour)
+    saveCSV(hour)
     val fileName = s"${serviceId}_${hour.toString("MMdd")}${hour.getHourOfDay}_${user}.xml"
     val errMsgHolder = new Holder("")
     val resultHolder = new Holder(Integer.valueOf(0))
