@@ -76,8 +76,9 @@ class Uploader extends Actor with ActorLogging {
   }
 
   def saveCSV(hour: DateTime) = {
+    import java.nio.charset.Charset
     val csv = DbHelper.getCsvRecord(hour)
-    val bytes = csv.getBytes
+    val bytes = csv.getBytes(Charset.forName("UTF-8"))
     val out = new FileOutputStream("aqm.csv")
     out.write(bytes)
     out.close()

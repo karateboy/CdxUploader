@@ -118,17 +118,18 @@ object DbHelper {
     /*
      * 測站代碼(SiteId)、測站名稱(SiteName)、縣市(County)、測項代碼(ItemId)、測項名稱(ItemName)、測項英文名稱(ItemEngName)、測項單位(ItemUnit)、監測日期(MonitorDate)、數值(Concentration)。
      */
-    val header = "測站代碼(SiteId),測站名稱(SiteName),縣市(County),測項代碼(ItemId),測項名稱(ItemName),測項英文名稱(ItemEngName),測項單位(ItemUnit),監測日期(MonitorDate),數值(Concentration),\r"
+    val header = "SiteId,SiteName,County,ItemId,ItemName,ItemEngName,ItemUnit,MonitorDate,Concentration\r"
 
     val csvList = hrList map { hr =>
       val map = itemIdMap(hr.itemId)
       val dateTimeStr = hr.dateTime.toString("YYYY-MM-dd HH:mm")
-      s"90,三峽測站,新北市,${map.epaId},${map.itemName},${map.itemCode},${map.unit},${dateTimeStr},${hr.value.getOrElse("-")},"
+      s"90,三峽測站,新北市,${map.epaId},${map.itemName},${map.itemCode},${map.unit},${dateTimeStr},${hr.value.getOrElse("-")}"
     }
 
     header + csvList.mkString("\r")
   }
 
+  
   def getXml(hrList: List[HourRecord]) = {
     import scala.xml._
     val xmlList = hrList.map { _.toXML }
