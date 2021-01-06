@@ -15,6 +15,7 @@ libraryDependencies ++= Seq(
   "com.typesafe.akka" %% "akka-testkit" % "2.3.11" % "test",
   "org.scalatest" %% "scalatest" % "2.2.4" % "test")
 
+libraryDependencies += "org.scalafx" %% "scalafx" % "8.0.144-R12"
 scalacOptions += "-feature"
 scalacOptions += "-deprecation"
 
