@@ -1,8 +1,7 @@
 package com.wecc
 
-import java.time.LocalDate
-
-import akka.actor.ActorSystem
+import akka.actor.{Actor, ActorRef, ActorSystem, Cancellable, Props}
+import com.wecc.Uploader.{Upload, UploadRange}
 import scalafx.Includes._
 import scalafx.application.{JFXApp, Platform}
 import scalafx.geometry.Insets
@@ -11,71 +10,99 @@ import scalafx.scene.control.ButtonBar.ButtonData
 import scalafx.scene.control._
 import scalafx.scene.image.{Image, ImageView}
 import scalafx.scene.layout.{GridPane, HBox, VBox}
+import scalafx.scene.paint.Color._
 import scalafx.scene.paint.{LinearGradient, Stops}
 import scalafx.scene.text.Text
-import scalafx.scene.paint.Color._
+
+import java.time.format.DateTimeFormatter
+import java.time.{Duration, LocalDateTime}
 import scala.concurrent.ExecutionContext.Implicits.global
 
+class MonitorActor(message1: TextArea) extends Actor {
+
+  import Uploader._
+
+  val uploader: ActorRef = context.actorOf(Uploader.props, "uploader")
+  uploader ! Uploader.Upload
+
+  val timer: Cancellable = {
+    val uploadTime = LocalDateTime.now.plusHours(1).withMinute(9)
+    val duration = Duration.between(LocalDateTime.now(), uploadTime)
+
+    context.system.scheduler.schedule(scala.concurrent.duration.Duration(duration.getSeconds + 1, scala.concurrent.duration.SECONDS),
+      scala.concurrent.duration.Duration(1, scala.concurrent.duration.HOURS), self, Uploader.ScheduledUpload)
+  }
+
+  override def receive: Receive = {
+    case ScheduledUpload =>
+      Platform.runLater({
+        message1.appendText(s"上傳最近資料...\n")
+      })
+      uploader ! Upload
+    case Upload =>
+      Platform.runLater({
+        message1.appendText(s"上傳最近資料...\n")
+      })
+      uploader ! Upload
+    case uploadRange: UploadRange =>
+      Platform.runLater({
+        message1.appendText(s"上傳 從${uploadRange.start.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}->${uploadRange.end.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}\n")
+      })
+      uploader ! uploadRange
+    case UploadResult(success, dateTime) =>
+      Platform.runLater({
+        if (success)
+          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}-上傳成功\n")
+        else
+          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}-上傳失敗\n")
+      })
+  }
+}
+
 object ApplicationMain extends JFXApp {
+  DbHelper.start()
 
-  DbHelper.start
+  val message1: TextArea = new TextArea()
+  message1.editable = false
 
-  val system = ActorSystem("MyActorSystem")
-  val uploader = system.actorOf(Uploader.props, "uploader")
+  val system: ActorSystem = ActorSystem("MyActorSystem")
+  val monitor: ActorRef = system.actorOf(Props(classOf[MonitorActor], message1))
 
-  val timer = {
-    import com.github.nscala_time.time.Imports._
-    val nextHour = DateTime.now + 1.hour
-    val uploadTime = nextHour.withMinuteOfHour(9)
-    val duration = new Duration(DateTime.now(), uploadTime)
 
-    system.scheduler.schedule(scala.concurrent.duration.Duration(duration.getStandardSeconds + 1, scala.concurrent.duration.SECONDS),
-      scala.concurrent.duration.Duration(1, scala.concurrent.duration.HOURS), uploader, Uploader.Upload)
-  }
-
-  def nextUploadTime = {
-    import com.github.nscala_time.time.Imports._
-    val nextHour = DateTime.now + 1.hour
-    val uploadTime = nextHour.withMinuteOfHour(9)
-    uploadTime.toString("yyyy-MM-dd hh:mm")
-  }
-
-  val uploadMessage = new Text {
+  val message2: Text = new Text {
     text = ""
     style = "-fx-font-size: 16pt"
     fill = new LinearGradient(
       endX = 0,
       stops = Stops(PaleGreen, SeaGreen))
   }
+
   stage = new JFXApp.PrimaryStage {
     icons += new Image("/sfx.png")
-    scene = new Scene(400, 150) {
+    scene = new Scene() {
       title = "CDX上傳工具"
-      fill = Black
       content =
         new VBox {
           padding = Insets(10)
           spacing = 8
           children = Seq(
-            new Text {
-              text = s"下次上傳:${nextUploadTime}"
-              style = "-fx-font-size: 16pt"
-              fill = new LinearGradient(
-                endX = 0,
-                stops = Stops(PaleGreen, SeaGreen))
-            },
-            new VBox {
+            new HBox {
               spacing = 8
               //padding = Insets(10)
               children = Seq(
+                new Button("上傳最新資料") {
+                  onAction = handle {
+                    monitor ! Upload
+                  }
+                },
                 new Button("上傳區間資料") {
                   onAction = handle {
                     onShowDateRangeDlg()
                   }
-                },
-                uploadMessage
+                }
               )
-            }
+            },
+            message1
           )
         }
 
@@ -84,7 +111,7 @@ object ApplicationMain extends JFXApp {
 
   def onShowDateRangeDlg(): Unit = {
 
-    case class Result(start: LocalDate, end: LocalDate)
+    case class Result(start: LocalDateTime, end: LocalDateTime)
 
     // Create the custom dialog.
     val dialog = new Dialog[Result]() {
@@ -98,9 +125,12 @@ object ApplicationMain extends JFXApp {
     val uploadButtonType = new ButtonType("上傳", ButtonData.OKDone)
     dialog.dialogPane().buttonTypes = Seq(uploadButtonType, ButtonType.Cancel)
 
+    import jfxtras.scene.control._
     // Create the username and password labels and fields.
-    val startDate = new DatePicker()
-    val endDate = new DatePicker()
+    val startDate = new LocalDateTimeTextField(LocalDateTime.now().minusDays(1).withMinute(0).withSecond(0).withNano(0))
+    val endDate = new LocalDateTimeTextField(startDate.getLocalDateTime.plusDays(1))
+
+    startDate.setMinWidth(200)
 
     val grid = new GridPane() {
       hgap = 10
@@ -115,34 +145,35 @@ object ApplicationMain extends JFXApp {
 
     // Enable/Disable login button depending on whether a username was entered.
     val uploadButton = dialog.dialogPane().lookupButton(uploadButtonType)
-    uploadButton.disable = true
 
     // Do some validation (disable when username is empty).
-    startDate.value.onChange{ (_, _, newValue) =>
-      endDate.value = newValue}
+    startDate.localDateTimeProperty().onChange { (_, _, newValue) =>
+      if (newValue.isAfter(endDate.getLocalDateTime))
+        endDate.setLocalDateTime(newValue.plusHours(1))
+    }
 
-    endDate.value.onChange{(_,_, newValue)=>
-      uploadButton.disable = !newValue.isAfter(startDate.value())
+    endDate.localDateTimeProperty().onChange { (_, _, newValue) =>
+      uploadButton.disable = !newValue.isAfter(startDate.getLocalDateTime)
     }
     dialog.dialogPane().content = grid
 
     // Request focus on the username field by default.
     Platform.runLater(startDate.requestFocus())
-
     // Convert the result to a username-password-pair when the login button is clicked.
     dialog.resultConverter = dialogButton =>
-      if (dialogButton == uploadButtonType) Result(startDate.value(), endDate.value())
+
+      if (dialogButton == uploadButtonType)
+        Result(startDate.getLocalDateTime, endDate.getLocalDateTime)
       else null
 
     val result = dialog.showAndWait()
 
     result match {
-      case Some(Result(u, p)) => println("start=" + u + ", end=" + p)
-      case None               => println("Dialog returned: None")
+      case Some(Result(start, end)) =>
+        monitor ! UploadRange(start, end)
+      case None => println("Dialog returned: None")
     }
   }
-
-
 }
 
 /*

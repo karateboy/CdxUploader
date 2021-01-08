@@ -1,37 +1,54 @@
 package com.wecc
 
-import akka.actor.{ Actor, ActorLogging, Props }
-import javax.xml.ws.Holder
-import com.github.nscala_time.time.Imports._
+import akka.actor.{Actor, ActorLogging, Props}
+
 import java.io.FileOutputStream
+import java.nio.file.Path
+import javax.xml.ws.Holder
+import scala.collection.immutable
+import com.typesafe.config._
+
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 object Uploader {
-  val props = Props[Uploader]
+  val props: Props = Props[Uploader]
+
+  case object ScheduledUpload
+
   case object Upload
-  case class UploadData(time: DateTime)
-  case class UploadRange(start:DateTime, end:DateTime)
+
+  case class UploadData(time: LocalDateTime)
+
+  case class UploadRange(start: LocalDateTime, end: LocalDateTime)
+
+  case class UploadResult(success: Boolean, dateTime: LocalDateTime)
+
 }
 
 class Uploader extends Actor with ActorLogging {
-  import Uploader._
-  import com.github.nscala_time.time.Imports._
 
-  def getPeriodHours(start:DateTime, end:DateTime)={
-    var hours = Vector.empty[DateTime]
+  import Uploader._
+
+  val dryRun = ConfigFactory.load().getBoolean("dryRun")
+  log.info(s"dryRun=$dryRun")
+
+  def getPeriodHours(start: LocalDateTime, end: LocalDateTime): immutable.Seq[LocalDateTime] = {
+    var hours = Vector.empty[LocalDateTime]
     var current = start
-    while(current < end){
-      hours = hours :+(current)
-      current += 1.hour
+    while (current.isBefore(end)) {
+      hours = hours :+ current
+      current = current.plusHours(1)
     }
     hours
   }
-  
-  def receive = {
+
+  def receive: Receive = {
     case Upload =>
       try {
-        val lastHour = DateTime.now().withMinuteOfHour(0).withSecondOfMinute(0).withMillisOfSecond(0) - 1.hour
+        val lastHour = LocalDateTime.now().withMinute(0).withSecond(0).minusHours(1)
         log.info(s"Upload ${lastHour.toString()}")
-        val result = upload(lastHour, "AQX_S_00", "epbntcair", "wfuviFJf")
+        upload(lastHour, "AQX_S_00", "epbntcair", "wfuviFJf")
       } catch {
         case ex: Throwable =>
           log.error(ex, "upload failed")
@@ -39,17 +56,17 @@ class Uploader extends Actor with ActorLogging {
     case UploadData(time) =>
       try {
         log.info(s"Upload ${time.toString()}")
-        val result = upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
+        upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
       } catch {
         case ex: Throwable =>
           log.error(ex, "upload failed")
       }
-    case UploadRange(start, end)=>
-      try {       
-        log.info(s"上傳自 ${start.toLocalDateTime.toString} to ${end.toLocalDateTime.toString}")
-        for(time <- getPeriodHours(start,end))
+    case UploadRange(start, end) =>
+      try {
+        log.info(s"上傳從 ${start.toString} 至 ${end.toString}")
+        for (time <- getPeriodHours(start, end))
           upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
-          
+
         log.info("Done!")
       } catch {
         case ex: Throwable =>
@@ -57,25 +74,25 @@ class Uploader extends Actor with ActorLogging {
       }
   }
 
-  def getBase64XmlStr(hour: DateTime) = {
+  def getBase64XmlStr(hour: LocalDateTime): Array[Byte] = {
     val xml = DbHelper.getXmlRecord(hour)
 
-    scala.xml.XML.save("temp.xml", xml, "UTF-8", true)
+    scala.xml.XML.save("temp.xml", xml, "UTF-8", xmlDecl = true)
 
     val xmlStr = scala.io.Source.fromFile("temp.xml")("UTF-8").mkString
     val encoder = java.util.Base64.getEncoder
     encoder.encode(xmlStr.getBytes("UTF-8"))
   }
 
-  def getXmlStr(hour: DateTime) = {
+  def getXmlStr(hour: LocalDateTime): String = {
     val xml = DbHelper.getXmlRecord(hour)
 
-    scala.xml.XML.save("temp.xml", xml, "UTF-8", true)
+    scala.xml.XML.save("temp.xml", xml, "UTF-8", xmlDecl = true)
 
     scala.io.Source.fromFile("temp.xml")("UTF-8").mkString
   }
 
-  def saveCSV(hour: DateTime) = {
+  def saveCSV(hour: LocalDateTime) {
     import java.nio.charset.Charset
     val csv = DbHelper.getCsvRecord(hour)
     val bytes = csv.getBytes(Charset.forName("UTF-8"))
@@ -84,27 +101,34 @@ class Uploader extends Actor with ActorLogging {
     out.close()
 
     import java.io.File
-    import java.nio.file.Files
-    import java.nio.file.StandardCopyOption
+    import java.nio.file.{Files, StandardCopyOption}
     val src = new File("aqm.csv")
     val dest = new File("C:/inetpub/wwwroot/aqm.csv")
-    Files.copy(src.toPath(), dest.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    if (!dryRun)
+      Files.copy(src.toPath, dest.toPath, StandardCopyOption.REPLACE_EXISTING)
   }
 
-  def upload(hour: DateTime, serviceId: String, user: String, password: String) = {
+  def upload(hour: LocalDateTime, serviceId: String, user: String, password: String): Unit = {
     val xmlStr = getXmlStr(hour)
     saveCSV(hour)
-    val fileName = s"${serviceId}_${hour.toString("MMdd")}${hour.getHourOfDay}_${user}.xml"
+    val fileName = s"${serviceId}_${hour.format(DateTimeFormatter.ofPattern("MMdd"))}${hour.getHour}_$user.xml"
     val errMsgHolder = new Holder("")
     val resultHolder = new Holder(Integer.valueOf(0))
     val unknownHolder = new Holder(new java.lang.Boolean(true))
-    CdxWebService.service.putFile(user, password, fileName, xmlStr.getBytes("UTF-8"), errMsgHolder, resultHolder, unknownHolder)
-    if (resultHolder.value != 1) {
-      log.error(s"errMsg:${errMsgHolder.value}")
-      log.error(s"ret:${resultHolder.value.toString}")
-      log.error(s"unknown:${unknownHolder.value.toString}")
+
+    if (!dryRun) {
+      CdxWebService.service.putFile(user, password, fileName, xmlStr.getBytes("UTF-8"), errMsgHolder, resultHolder, unknownHolder)
+      if (resultHolder.value != 1) {
+        log.error(s"errMsg:${errMsgHolder.value}")
+        log.error(s"ret:${resultHolder.value.toString}")
+        log.error(s"unknown:${unknownHolder.value.toString}")
+        sender ! UploadResult(false, hour)
+      } else {
+        log.info(s"Success upload ${hour.toString}")
+        sender ! UploadResult(true, hour)
+      }
     } else {
-      log.info(s"Success upload ${hour.toString}")
+      sender ! UploadResult(true, hour)
     }
   }
 }

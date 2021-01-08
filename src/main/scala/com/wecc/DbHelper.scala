@@ -1,21 +1,24 @@
 package com.wecc
+
+import org.slf4j.{Logger, LoggerFactory}
 import scalikejdbc._
 import scalikejdbc.config._
-import scala.language.implicitConversions
-import org.slf4j.Logger
-import org.slf4j.LoggerFactory
-import com.github.nscala_time.time.Imports._
 
-case class HourRecord(station: Int, dateTime: DateTime, itemId: Int, value: Option[Float]) {
-  import scala.xml._
+import java.sql.Timestamp
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import scala.language.implicitConversions
+import scala.xml.Elem
+
+case class HourRecord(station: Int, dateTime: LocalDateTime, itemId: Int, value: Option[Float]) {
   /*
      * 測站代碼(SiteId)、測站名稱(SiteName)、縣市(County)、測項代碼(ItemId)、測項名稱(ItemName)、測項英文名稱(ItemEngName)、測項單位(ItemUnit)、監測日期(MonitorDate)、數值(Concentration)。
      */
 
-  def toXML = {
+  def toXML: Elem = {
     val map = DbHelper.itemIdMap(itemId)
-    val dateStr = dateTime.toString("YYYY-MM-dd")
-    val timeStr = dateTime.toString("HH:mm:ss")
+    val dateStr = dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd"))
+    val timeStr = dateTime.format(DateTimeFormatter.ofPattern("HH:mm:ss"))
 
     <aqs:AirQualityData>
       <aqs:SiteIdentifierDetails>
@@ -23,49 +26,55 @@ case class HourRecord(station: Int, dateTime: DateTime, itemId: Int, value: Opti
         <aqs:SiteID>029</aqs:SiteID>
       </aqs:SiteIdentifierDetails>
       <aqs:MonitorIdentifierDetails>
-        <aqs:Parameter>{ "%03d".format(map.epaId) }</aqs:Parameter>
+        <aqs:Parameter>
+          {"%03d".format(map.epaId)}
+        </aqs:Parameter>
       </aqs:MonitorIdentifierDetails>
       <aqs:TransactionProtocolDetails>
         <aqs:SamplingDurationCode>1</aqs:SamplingDurationCode>
       </aqs:TransactionProtocolDetails>
       <aqs:SubDailyRawData>
         <aqs:ActionIndicator>I</aqs:ActionIndicator>
-        <aqs:SampleCollectionStartDate>{ dateStr }</aqs:SampleCollectionStartDate>
-        <aqs:SampleCollectionStartTime>{ timeStr }</aqs:SampleCollectionStartTime>
-        {
-          if (value.isDefined) {
-            <aqs:ReportedSampleValue>{ value.get }</aqs:ReportedSampleValue>
-          } else {
-            <aqs:ReportedSampleValue>-</aqs:ReportedSampleValue>
-          }
-        }
+        <aqs:SampleCollectionStartDate>
+          {dateStr}
+        </aqs:SampleCollectionStartDate>
+        <aqs:SampleCollectionStartTime>
+          {timeStr}
+        </aqs:SampleCollectionStartTime>{if (value.isDefined) {
+        <aqs:ReportedSampleValue>
+          {value.get}
+        </aqs:ReportedSampleValue>
+      } else {
+        <aqs:ReportedSampleValue>-</aqs:ReportedSampleValue>
+      }}
       </aqs:SubDailyRawData>
     </aqs:AirQualityData>
   }
 }
+
 case class ItemIdMap(epaId: Int, itemName: String, itemCode: String, unit: String)
 
 object DbHelper {
-  val logger = LoggerFactory.getLogger(DbHelper.getClass)
+  val logger: Logger = LoggerFactory.getLogger(DbHelper.getClass)
 
-  implicit def getSqlTimestamp(t: DateTime) = {
+  /*
+  implicit def getSqlTimestamp(t: LocalDateTime) = {
     new java.sql.Timestamp(t.getMillis)
   }
 
   implicit def getDateTime(st: java.sql.Timestamp) = {
     new DateTime(st)
   }
-
-  def start = {
+*/
+  def start(): Unit = {
     DBs.setupAll()
 
     //val hour = DateTime.parse("2016-6-29 10:00")
     //getHourRecord(hour)
   }
 
-  def getHourRecord(hour: DateTime)(implicit session: DBSession = AutoSession) = {
-    import java.sql.Time
-    val hourTime: java.sql.Timestamp = hour
+  def getHourRecord(hour: LocalDateTime)(implicit session: DBSession = AutoSession): List[HourRecord] = {
+    val hourTime: java.sql.Timestamp = Timestamp.valueOf(hour)
 
     sql"""
       Select *
@@ -79,7 +88,7 @@ object DbHelper {
       else
         None
 
-      HourRecord(rs.int("MStation"), dateTime, rs.int("MItem"), mValue)
+      HourRecord(rs.int("MStation"), dateTime.toLocalDateTime, rs.int("MItem"), mValue)
     }.list.apply
   }
 
@@ -103,18 +112,18 @@ object DbHelper {
     17 -> ItemIdMap(23, "雨量", "RF", "mm"),
     18 -> ItemIdMap(14, "室內溫度", "TEM", "deg"))
 
-  def getCsvRecord(hour: DateTime): String = {
+  def getCsvRecord(hour: LocalDateTime): String = {
     val hrList = DbHelper.getHourRecord(hour)
     getCsvRecord(hrList)
   }
 
-  def getXmlRecord(hour: DateTime) = {
+  def getXmlRecord(hour: LocalDateTime): Elem = {
     val hrList = DbHelper.getHourRecord(hour)
     Console.println(s"#=${hrList.length}")
     getXml(hrList)
   }
 
-  def getCsvRecord(hrList: List[HourRecord]) = {
+  def getCsvRecord(hrList: List[HourRecord]): String = {
     /*
      * 測站代碼(SiteId)、測站名稱(SiteName)、縣市(County)、測項代碼(ItemId)、測項名稱(ItemName)、測項英文名稱(ItemEngName)、測項單位(ItemUnit)、監測日期(MonitorDate)、數值(Concentration)。
      */
@@ -122,23 +131,25 @@ object DbHelper {
 
     val csvList = hrList map { hr =>
       val map = itemIdMap(hr.itemId)
-      val dateTimeStr = hr.dateTime.toString("YYYY-MM-dd HH:mm")
-      s"90,三峽測站,新北市,${map.epaId},${map.itemName},${map.itemCode},${map.unit},${dateTimeStr},${hr.value.getOrElse("-")}"
+      val dateTimeStr = hr.dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))
+      s"90,三峽測站,新北市,${map.epaId},${map.itemName},${map.itemCode},${map.unit},$dateTimeStr,${hr.value.getOrElse("-")}"
     }
 
     header + csvList.mkString("\r")
   }
 
-  
-  def getXml(hrList: List[HourRecord]) = {
-    import scala.xml._
-    val xmlList = hrList.map { _.toXML }
-    val nowStr = DateTime.now().toString("YYYY-MM-dd_hh:mm:ss")
+
+  def getXml(hrList: List[HourRecord]): Elem = {
+    val xmlList = hrList.map {
+      _.toXML
+    }
+    val nowStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("YYYY-MM-dd_hh:mm:ss"))
 
     <aqs:AirQualitySubmission xmlns:aqs="http://taqm.epa.gov.tw/taqm/aqs/schema/" Version="1.0" n1:schemaLocation="http://taqm.epa.gov.tw/taqm/aqs/schema/" xmlns:n1="http://www.w3.org/2001/XMLSchema-instance">
       <aqs:FileGenerationPurposeCode>AQS</aqs:FileGenerationPurposeCode>
-      <aqs:FileGenerationDateTime>{ nowStr }</aqs:FileGenerationDateTime>
-      { xmlList }
+      <aqs:FileGenerationDateTime>
+        {nowStr}
+      </aqs:FileGenerationDateTime>{xmlList}
     </aqs:AirQualitySubmission>
   }
 }

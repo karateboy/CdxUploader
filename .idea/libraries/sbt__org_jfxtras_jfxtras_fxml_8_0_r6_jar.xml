@@ -1,0 +1,11 @@
+<component name="libraryTable">
+  <library name="sbt: org.jfxtras:jfxtras-fxml:8.0-r6:jar">
+    <CLASSES>
+      <root url="jar://$USER_HOME$/.ivy2/cache/org.jfxtras/jfxtras-fxml/jars/jfxtras-fxml-8.0-r6.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$USER_HOME$/.ivy2/cache/org.jfxtras/jfxtras-fxml/srcs/jfxtras-fxml-8.0-r6-sources.jar!/" />
+    </SOURCES>
+  </library>
+</component>
