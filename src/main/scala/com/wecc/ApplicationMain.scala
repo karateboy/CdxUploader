@@ -52,9 +52,9 @@ class MonitorActor(message1: TextArea) extends Actor {
     case UploadResult(success, dateTime) =>
       Platform.runLater({
         if (success)
-          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}-上傳成功\n")
+          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳成功\n")
         else
-          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}-上傳失敗\n")
+          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳失敗\n")
       })
   }
 }

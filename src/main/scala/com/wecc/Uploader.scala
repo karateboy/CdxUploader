@@ -35,7 +35,7 @@ class Uploader extends Actor with ActorLogging {
 
   def getPeriodHours(start: LocalDateTime, end: LocalDateTime): immutable.Seq[LocalDateTime] = {
     var hours = Vector.empty[LocalDateTime]
-    var current = start
+    var current = start.withMinute(0).withSecond(0).withNano(0)
     while (current.isBefore(end)) {
       hours = hours :+ current
       current = current.plusHours(1)
@@ -46,7 +46,7 @@ class Uploader extends Actor with ActorLogging {
   def receive: Receive = {
     case Upload =>
       try {
-        val lastHour = LocalDateTime.now().withMinute(0).withSecond(0).minusHours(1)
+        val lastHour = LocalDateTime.now().withMinute(0).withSecond(0).minusHours(1).withNano(0)
         log.info(s"Upload ${lastHour.toString()}")
         upload(lastHour, "AQX_S_00", "epbntcair", "wfuviFJf")
       } catch {
