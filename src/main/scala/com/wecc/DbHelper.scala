@@ -73,7 +73,7 @@ object DbHelper {
     //getHourRecord(hour)
   }
 
-  def getHourRecord(hour: LocalDateTime)(implicit session: DBSession = AutoSession): List[HourRecord] = {
+  def getHourRecord(hour: LocalDateTime, allStatus:Boolean = false)(implicit session: DBSession = AutoSession): List[HourRecord] = {
     val hourTime: java.sql.Timestamp = Timestamp.valueOf(hour)
 
     sql"""
@@ -83,7 +83,7 @@ object DbHelper {
       """.map { rs =>
       val dateTime = rs.timestamp("MDate")
       val mStatus = rs.string("MStatus")
-      val mValue = if (mStatus == "N")
+      val mValue = if (allStatus || mStatus == "N")
         Some(rs.float("MValue"))
       else
         None
@@ -112,13 +112,13 @@ object DbHelper {
     17 -> ItemIdMap(23, "雨量", "RF", "mm"),
     18 -> ItemIdMap(14, "室內溫度", "TEM", "deg"))
 
-  def getCsvRecord(hour: LocalDateTime): String = {
-    val hrList = DbHelper.getHourRecord(hour)
+  def getCsvRecord(hour: LocalDateTime, allStatus:Boolean = false): String = {
+    val hrList = DbHelper.getHourRecord(hour, allStatus)
     getCsvRecord(hrList)
   }
 
-  def getXmlRecord(hour: LocalDateTime): Elem = {
-    val hrList = DbHelper.getHourRecord(hour)
+  def getXmlRecord(hour: LocalDateTime, allStatus:Boolean = false): Elem = {
+    val hrList = DbHelper.getHourRecord(hour, allStatus)
     Console.println(s"#=${hrList.length}")
     getXml(hrList)
   }
@@ -143,7 +143,7 @@ object DbHelper {
     val xmlList = hrList.map {
       _.toXML
     }
-    val nowStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("YYYY-MM-dd_hh:mm:ss"))
+    val nowStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("YYYY-MM-dd_HH:mm:ss"))
 
     <aqs:AirQualitySubmission xmlns:aqs="http://taqm.epa.gov.tw/taqm/aqs/schema/" Version="1.0" n1:schemaLocation="http://taqm.epa.gov.tw/taqm/aqs/schema/" xmlns:n1="http://www.w3.org/2001/XMLSchema-instance">
       <aqs:FileGenerationPurposeCode>AQS</aqs:FileGenerationPurposeCode>

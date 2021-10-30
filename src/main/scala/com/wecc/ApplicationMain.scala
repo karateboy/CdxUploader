@@ -26,7 +26,7 @@ class MonitorActor(message1: TextArea) extends Actor {
   uploader ! Uploader.Upload
 
   val timer: Cancellable = {
-    val uploadTime = LocalDateTime.now.plusHours(1).withMinute(9)
+    val uploadTime = LocalDateTime.now.plusHours(1).withMinute(7)
     val duration = Duration.between(LocalDateTime.now(), uploadTime)
 
     context.system.scheduler.schedule(scala.concurrent.duration.Duration(duration.getSeconds + 1, scala.concurrent.duration.SECONDS),
@@ -46,7 +46,8 @@ class MonitorActor(message1: TextArea) extends Actor {
       uploader ! Upload
     case uploadRange: UploadRange =>
       Platform.runLater({
-        message1.appendText(s"上傳 從${uploadRange.start.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}->${uploadRange.end.format(DateTimeFormatter.ofPattern("YYYY-MM-dd hh:mm"))}\n")
+        message1.appendText(s"上傳 從${uploadRange.start.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}->" +
+          s"${uploadRange.end.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}\n")
       })
       uploader ! uploadRange
     case UploadResult(success, dateTime) =>
@@ -97,7 +98,12 @@ object ApplicationMain extends JFXApp {
                 },
                 new Button("上傳區間資料") {
                   onAction = handle {
-                    onShowDateRangeDlg()
+                    onShowDateRangeDlg(false)
+                  }
+                },
+                new Button("上傳區間資料(所有狀態)") {
+                  onAction = handle {
+                    onShowDateRangeDlg(true)
                   }
                 }
               )
@@ -109,7 +115,7 @@ object ApplicationMain extends JFXApp {
     }
   }
 
-  def onShowDateRangeDlg(): Unit = {
+  def onShowDateRangeDlg(allStatus:Boolean): Unit = {
 
     case class Result(start: LocalDateTime, end: LocalDateTime)
 
@@ -170,7 +176,7 @@ object ApplicationMain extends JFXApp {
 
     result match {
       case Some(Result(start, end)) =>
-        monitor ! UploadRange(start, end)
+        monitor ! UploadRange(start, end, allStatus)
       case None => println("Dialog returned: None")
     }
   }

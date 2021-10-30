@@ -20,7 +20,7 @@ object Uploader {
 
   case class UploadData(time: LocalDateTime)
 
-  case class UploadRange(start: LocalDateTime, end: LocalDateTime)
+  case class UploadRange(start: LocalDateTime, end: LocalDateTime, allStatus:Boolean)
 
   case class UploadResult(success: Boolean, dateTime: LocalDateTime)
 
@@ -61,11 +61,11 @@ class Uploader extends Actor with ActorLogging {
         case ex: Throwable =>
           log.error(ex, "upload failed")
       }
-    case UploadRange(start, end) =>
+    case UploadRange(start, end, allStatus) =>
       try {
         log.info(s"上傳從 ${start.toString} 至 ${end.toString}")
         for (time <- getPeriodHours(start, end))
-          upload(time, "AQX_S_00", "epbntcair", "wfuviFJf")
+          upload(time, "AQX_S_00", "epbntcair", "wfuviFJf", allStatus)
 
         log.info("Done!")
       } catch {
@@ -84,17 +84,17 @@ class Uploader extends Actor with ActorLogging {
     encoder.encode(xmlStr.getBytes("UTF-8"))
   }
 
-  def getXmlStr(hour: LocalDateTime): String = {
-    val xml = DbHelper.getXmlRecord(hour)
+  def getXmlStr(hour: LocalDateTime, allStatus:Boolean): String = {
+    val xml = DbHelper.getXmlRecord(hour, allStatus)
 
     scala.xml.XML.save("temp.xml", xml, "UTF-8", xmlDecl = true)
 
     scala.io.Source.fromFile("temp.xml")("UTF-8").mkString
   }
 
-  def saveCSV(hour: LocalDateTime) {
+  def saveCSV(hour: LocalDateTime, allStatus:Boolean) {
     import java.nio.charset.Charset
-    val csv = DbHelper.getCsvRecord(hour)
+    val csv = DbHelper.getCsvRecord(hour, allStatus)
     val bytes = csv.getBytes(Charset.forName("UTF-8"))
     val out = new FileOutputStream("aqm.csv")
     out.write(bytes)
@@ -108,9 +108,9 @@ class Uploader extends Actor with ActorLogging {
       Files.copy(src.toPath, dest.toPath, StandardCopyOption.REPLACE_EXISTING)
   }
 
-  def upload(hour: LocalDateTime, serviceId: String, user: String, password: String): Unit = {
-    val xmlStr = getXmlStr(hour)
-    saveCSV(hour)
+  def upload(hour: LocalDateTime, serviceId: String, user: String, password: String, allStatus:Boolean = false): Unit = {
+    val xmlStr = getXmlStr(hour, allStatus)
+    saveCSV(hour, allStatus)
     val fileName = s"${serviceId}_${hour.format(DateTimeFormatter.ofPattern("MMdd"))}${hour.getHour}_$user.xml"
     val errMsgHolder = new Holder("")
     val resultHolder = new Holder(Integer.valueOf(0))
