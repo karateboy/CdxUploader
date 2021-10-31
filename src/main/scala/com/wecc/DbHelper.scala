@@ -67,10 +67,13 @@ object DbHelper {
   }
 */
   def start(): Unit = {
-    DBs.setupAll()
-
-    //val hour = DateTime.parse("2016-6-29 10:00")
-    //getHourRecord(hour)
+    logger.info("啟動資料庫")
+    try{
+      DBs.setupAll()
+    }catch {
+      case ex:Throwable=>
+        logger.error("failed to setup DB", ex)
+    }
   }
 
   def getHourRecord(hour: LocalDateTime, allStatus:Boolean = false)(implicit session: DBSession = AutoSession): List[HourRecord] = {

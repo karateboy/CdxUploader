@@ -2,6 +2,7 @@ package com.wecc
 
 import akka.actor.{Actor, ActorRef, ActorSystem, Cancellable, Props}
 import com.wecc.Uploader.{Upload, UploadRange}
+import org.slf4j.{Logger, LoggerFactory}
 import scalafx.Includes._
 import scalafx.application.{JFXApp, Platform}
 import scalafx.geometry.Insets
@@ -17,45 +18,54 @@ import scalafx.scene.text.Text
 import java.time.format.DateTimeFormatter
 import java.time.{Duration, LocalDateTime}
 import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration.{FiniteDuration, HOURS, SECONDS}
 
 class MonitorActor(message1: TextArea) extends Actor {
 
+  val logger = LoggerFactory.getLogger(classOf[MonitorActor])
   import Uploader._
 
   val uploader: ActorRef = context.actorOf(Uploader.props, "uploader")
   uploader ! Uploader.Upload
 
   val timer: Cancellable = {
-    val uploadTime = LocalDateTime.now.plusHours(1).withMinute(7)
+    val uploadTime = LocalDateTime.now.plusHours(1).withMinute(7).withSecond(0)
     val duration = Duration.between(LocalDateTime.now(), uploadTime)
 
-    context.system.scheduler.schedule(scala.concurrent.duration.Duration(duration.getSeconds + 1, scala.concurrent.duration.SECONDS),
-      scala.concurrent.duration.Duration(1, scala.concurrent.duration.HOURS), self, Uploader.ScheduledUpload)
+    context.system.scheduler.schedule(FiniteDuration(duration.getSeconds, SECONDS),
+      FiniteDuration(1, HOURS), self, Uploader.ScheduledUpload)
   }
 
   override def receive: Receive = {
     case ScheduledUpload =>
+      val msg = s"上傳排定資料..."
+      logger.info(msg)
       Platform.runLater({
-        message1.appendText(s"上傳最近資料...\n")
+        message1.appendText(msg + "\n")
       })
       uploader ! Upload
     case Upload =>
+      val msg = s"上傳最近資料..."
+      logger.info(msg)
       Platform.runLater({
-        message1.appendText(s"上傳最近資料...\n")
+        message1.appendText(msg + "\n")
       })
       uploader ! Upload
     case uploadRange: UploadRange =>
+      val msg = s"上傳 從${uploadRange.start.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}->" +
+        s"${uploadRange.end.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}"
+      logger.info(msg)
       Platform.runLater({
-        message1.appendText(s"上傳 從${uploadRange.start.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}->" +
-          s"${uploadRange.end.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}\n")
+        message1.appendText(msg + "\n")
       })
       uploader ! uploadRange
     case UploadResult(success, dateTime) =>
+      val msg = if (success)
+        s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳成功"
+      else
+        s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳失敗"
       Platform.runLater({
-        if (success)
-          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳成功\n")
-        else
-          message1.appendText(s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳失敗\n")
+        message1.appendText(msg + "\n")
       })
   }
 }
@@ -181,38 +191,3 @@ object ApplicationMain extends JFXApp {
     }
   }
 }
-
-/*
-object ApplicationMain extends App {
-  DbHelper.start
-
-  val system = ActorSystem("MyActorSystem")
-  val uploader = system.actorOf(Uploader.props, "uploader")
-  if (args.length == 0) {
-    val timer = {
-      import com.github.nscala_time.time.Imports._
-      val nextHour = DateTime.now + 1.hour
-      val uploadTime = nextHour.withMinuteOfHour(9)
-      val duration = new Duration(DateTime.now(), uploadTime)
-
-      system.scheduler.schedule(scala.concurrent.duration.Duration(duration.getStandardSeconds + 1, scala.concurrent.duration.SECONDS),
-        scala.concurrent.duration.Duration(1, scala.concurrent.duration.HOURS), uploader, Uploader.Upload)
-
-    }
-    uploader ! Uploader.Upload
-  }else if(args.length == 2){
-    assert(args(0).equalsIgnoreCase("upload"))
-    val dataTime = DateTime.parse(args(1), DateTimeFormat.forPattern("YYYY-MM-dd HH:mm"))
-    uploader ! Uploader.UploadData(dataTime)
-    Console.println(s"Uploading ${dataTime} data")    
-  }else if(args.length == 3){
-    assert(args(0).equalsIgnoreCase("upload"))
-    val start = DateTime.parse(args(1), DateTimeFormat.forPattern("YYYY-MM-dd HH:mm"))
-    val end = DateTime.parse(args(2), DateTimeFormat.forPattern("YYYY-MM-dd HH:mm"))
-    
-    uploader ! Uploader.UploadRange(start, end)
-  }
-  system.awaitTermination()
-}
-
- */
