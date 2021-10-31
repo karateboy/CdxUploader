@@ -29,7 +29,7 @@ class MonitorActor(message1: TextArea) extends Actor {
   uploader ! Uploader.Upload
 
   val timer: Cancellable = {
-    val uploadTime = LocalDateTime.now.plusHours(1).withMinute(7).withSecond(0)
+    val uploadTime = LocalDateTime.now.plusHours(1).withMinute(9).withSecond(0)
     val duration = Duration.between(LocalDateTime.now(), uploadTime)
 
     context.system.scheduler.schedule(FiniteDuration(duration.getSeconds, SECONDS),
