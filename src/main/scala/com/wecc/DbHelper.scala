@@ -17,7 +17,7 @@ case class HourRecord(station: Int, dateTime: LocalDateTime, itemId: Int, value:
 
   def toXML: Elem = {
     val map = DbHelper.itemIdMap(itemId)
-    val dateStr = dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd"))
+    val dateStr = dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))
     val timeStr = dateTime.format(DateTimeFormatter.ofPattern("HH:mm:ss"))
 
     <aqs:AirQualityData>
@@ -77,20 +77,23 @@ object DbHelper {
   }
 
   def getHourRecord(hour: LocalDateTime, allStatus:Boolean = false)(implicit session: DBSession = AutoSession): List[HourRecord] = {
-    val hourTime: java.sql.Timestamp = Timestamp.valueOf(hour)
+    logger.info(s"get ${hour} hour record")
+    //val hourTime: java.sql.Timestamp = Timestamp.valueOf(hour)
 
     sql"""
       Select *
       From hour_data
-      Where MStation = 90 and MDate = $hourTime
+      Where MStation = 90 and MDate = $hour
       """.map { rs =>
-      val dateTime = rs.timestamp("MDate")
+      val dateTime = rs.dateTime("MDate")
       val mStatus = rs.string("MStatus")
       val mValue = if (allStatus || mStatus == "N")
         Some(rs.float("MValue"))
       else
         None
 
+      logger.info(s"${dateTime}")
+      logger.info(s"${dateTime.toLocalDateTime}")
       HourRecord(rs.int("MStation"), dateTime.toLocalDateTime, rs.int("MItem"), mValue)
     }.list.apply
   }
@@ -134,7 +137,7 @@ object DbHelper {
 
     val csvList = hrList map { hr =>
       val map = itemIdMap(hr.itemId)
-      val dateTimeStr = hr.dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))
+      val dateTimeStr = hr.dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
       s"90,三峽測站,新北市,${map.epaId},${map.itemName},${map.itemCode},${map.unit},$dateTimeStr,${hr.value.getOrElse("-")}"
     }
 
@@ -146,7 +149,7 @@ object DbHelper {
     val xmlList = hrList.map {
       _.toXML
     }
-    val nowStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("YYYY-MM-dd_HH:mm:ss"))
+    val nowStr = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd_HH:mm:ss"))
 
     <aqs:AirQualitySubmission xmlns:aqs="http://taqm.epa.gov.tw/taqm/aqs/schema/" Version="1.0" n1:schemaLocation="http://taqm.epa.gov.tw/taqm/aqs/schema/" xmlns:n1="http://www.w3.org/2001/XMLSchema-instance">
       <aqs:FileGenerationPurposeCode>AQS</aqs:FileGenerationPurposeCode>

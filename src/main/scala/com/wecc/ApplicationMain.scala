@@ -52,8 +52,8 @@ class MonitorActor(message1: TextArea) extends Actor {
       })
       uploader ! Upload
     case uploadRange: UploadRange =>
-      val msg = s"上傳 從${uploadRange.start.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}->" +
-        s"${uploadRange.end.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}"
+      val msg = s"上傳 從${uploadRange.start.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))}->" +
+        s"${uploadRange.end.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))}"
       logger.info(msg)
       Platform.runLater({
         message1.appendText(msg + "\n")
@@ -61,9 +61,9 @@ class MonitorActor(message1: TextArea) extends Actor {
       uploader ! uploadRange
     case UploadResult(success, dateTime) =>
       val msg = if (success)
-        s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳成功"
+        s"${dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))}-上傳成功"
       else
-        s"${dateTime.format(DateTimeFormatter.ofPattern("YYYY-MM-dd HH:mm"))}-上傳失敗"
+        s"${dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))}-上傳失敗"
       Platform.runLater({
         message1.appendText(msg + "\n")
       })
@@ -188,6 +188,7 @@ object ApplicationMain extends JFXApp {
       case Some(Result(start, end)) =>
         monitor ! UploadRange(start, end, allStatus)
       case None => println("Dialog returned: None")
+      case _ => println("unexpected!")
     }
   }
 }

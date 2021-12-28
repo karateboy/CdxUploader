@@ -74,16 +74,6 @@ class Uploader extends Actor with ActorLogging {
       }
   }
 
-  def getBase64XmlStr(hour: LocalDateTime): Array[Byte] = {
-    val xml = DbHelper.getXmlRecord(hour)
-
-    scala.xml.XML.save("temp.xml", xml, "UTF-8", xmlDecl = true)
-
-    val xmlStr = scala.io.Source.fromFile("temp.xml")("UTF-8").mkString
-    val encoder = java.util.Base64.getEncoder
-    encoder.encode(xmlStr.getBytes("UTF-8"))
-  }
-
   def getXmlStr(hour: LocalDateTime, allStatus:Boolean): String = {
     val xml = DbHelper.getXmlRecord(hour, allStatus)
 
